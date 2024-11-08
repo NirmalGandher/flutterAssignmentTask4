@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:contacts_service/contacts_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+class ContactListScreen extends StatefulWidget {
+  @override
+  _ContactListScreenState createState() => _ContactListScreenState();
+}
+
+class _ContactListScreenState extends State<ContactListScreen> {
+  List<Contact> _contacts = [];
+  List<Contact> _filteredContacts = [];
+  TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermission();
+    _searchController.addListener(_filterContacts);
+  }
+
+  Future<void> _requestPermission() async {
+    if (await Permission.contacts.request().isGranted) {
+      _fetchContacts();
+    }
+  }
+
+  Future<void> _fetchContacts() async {
+    Iterable<Contact> contacts = await ContactsService.getContacts();
+    setState(() {
+      _contacts = contacts.toList();
+      _filteredContacts = _contacts;
+    });
+  }
+
+  void _filterContacts() {
+    String query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredContacts = _contacts.where((contact) {
+        String name = contact.displayName?.toLowerCase() ?? '';
+        return name.contains(query);
+      }).toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Contacts")),
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search Contacts',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _filteredContacts.isEmpty
+                ? Center(child: Text("No contacts found"))
+                : ListView.builder(
+                    itemCount: _filteredContacts.length,
+                    itemBuilder: (context, index) {
+                      Contact contact = _filteredContacts[index];
+                      return ListTile(
+                        title: Text(contact.displayName ?? "No Name"),
+                        subtitle: Text(contact.phones!.isNotEmpty
+                            ? contact.phones!.first.value!
+                            : "No Number"),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
